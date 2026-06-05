@@ -1,85 +1,88 @@
-# Sungrow Monthly Review Engine
+# Sungrow Daybook MIS
 
-A browser-based React app for the monthly **Sungrow / SDIPL** accounting review.
-Upload the monthly **Daybook** and **Financials** Excel files, and the app runs
-TDS, GST/RCM, audit-exception and financial-performance reviews entirely in your
-browser — **no backend, no upload, nothing leaves your machine** — then lets you
-download a formatted Excel workbook, a single-page HTML summary and a normalized CSV.
+**Live app:** https://dhruvdua88.github.io/sungrow-developers-daybook-review-2026/
+**Source:** https://github.com/dhruvdua88/sungrow-developers-daybook-review-2026
 
-> ⚠️ The output is **rule-based and indicative**. TDS sections, rates, thresholds
-> and GST/RCM positions must be independently verified against the Income-tax Act,
-> GST law and the underlying vouchers before any filing or payment.
+A browser-based React app that turns the monthly **Sungrow / SDIPL** SAP daybook
+into a management view (MIS). Upload one Excel daybook and the app builds — entirely
+in your browser, **nothing leaves your machine** — a P&L, an expense-head → party
+breakdown, and a party (AP) bird's-eye view, then lets you download an Excel workbook.
 
 ---
 
-## What it does
+## What it produces
 
-1. **Upload** a Daybook (transaction-level entries) and optionally a Financials pack.
-2. **Parse** both Excel files in-browser using [SheetJS](https://sheetjs.com).
-3. **Auto-detect** sheets, header rows and useful columns (fuzzy keyword matching — no fixed column names).
-4. **Normalize** transactions (`amount = debit − credit` when no amount column).
-5. **Review**:
-   - **TDS** — classify each entry to a section (194J/C/I/H/A/192/194Q), compute expected TDS, flag unmapped ledgers and high-value entries.
-   - **GST / RCM** — possible reverse charge (legal/professional/freight/import), expenses without GSTIN, GST ledger summary.
-   - **Audit** — high-value, round-figure, manual journals, duplicate invoices, related-party, missing PAN/GSTIN.
-   - **Financials** — detect the P&L sheet, extract revenue / cost / margins, show variance notes.
-6. **Dashboard** — KPI cards + drill-down tables.
-7. **Download** — Excel workbook (13 sheets), HTML summary, normalized CSV.
+1. **Overview** — KPI strip: Revenue, Gross margin, Profit/Loss before tax, Operating
+   expense, Expense-thru-AP, TDS deducted (effective %), RCM.
+2. **P&L (from the daybook)** — built straight from the ledger codes:
+   - GL **6xxx** → revenue / cost of sales / finance
+   - GL **7xxx** → operating expense
+   Shown as a statement with margin bars and the top expense heads. No financials
+   file needed — it comes out of the daybook itself.
+3. **Expense Head → Party** — one row per expense ledger with **Total Amount, TDS,
+   effective TDS %, RCM, # parties**. Click any head to expand the **party-wise split**
+   (party, amount, TDS, %, RCM). Effective-% instantly flags a short / non-deduction
+   (rent 10% ✓, a contractor head at 0% ⚠).
+4. **Party / AP — bird's-eye** — every accounts-payable party: **Total Amount, TDS,
+   RCM, AP invoiced, AP paid, Outstanding**. Click a party to expand **where the money
+   is going** (the expense heads it hit).
+5. **Transactions** — every normalized line with `G/L Account`, `G/L Account Text
+   (Ledger)`, `Accounting pro. (Party)`, `Reference`, line type and section — sortable,
+   text-filterable, line-type chips.
+6. **Download** — an Excel workbook (Summary, P&L, Expense×Party, Party×Head,
+   Transactions) and a normalized CSV.
+
+### How the numbers are built (SAP daybook)
+
+| Field | SAP column |
+|---|---|
+| Ledger code | `G/L Account` |
+| Ledger name | `G/L Account Text` |
+| Party | `Accounting pro.` |
+| Reference | `reference` |
+| Amounts | `DR` / `CR` |
+
+- **TDS** = credit on the SAP TDS ledgers (`TDS - 194C/194J/194I/194Q/192B`), attributed
+  across each voucher's expense lines pro-rata to amount.
+- **RCM** = credit on the reverse-charge GST ledgers (`… REVE CH`, GL `2221013010/30/40`).
+- **AP** = the accounts-payable lines (`2202* / 2241*`); invoiced (CR) vs paid (DR).
+
+The TDS / RCM / P&L logic is generic — it works on any daybook that exposes a ledger
+code/name, a party column and DR/CR. SAP column names are auto-detected by keyword.
 
 ---
 
-## Setup
+## Run it locally
 
 Requires Node 18+.
 
 ```bash
-npm install      # install dependencies (SheetJS comes from the SheetJS CDN tarball)
-npm run dev      # start the dev server (http://localhost:5173)
+npm install      # install dependencies
+npm run dev      # dev server → http://localhost:5173/sungrow-developers-daybook-review-2026/
 npm run build    # type-check + production build into dist/
-npm run preview  # preview the production build locally
+npm run preview  # preview the production build
 ```
 
-### Using the app each month
+### Monthly use
 
-1. Open the app (`npm run dev`, or the deployed GitHub Pages URL).
-2. Set the **Month** (e.g. `May-26`) in the header.
-3. **Upload Daybook** — the transaction file (required).
-4. **Upload Financials** — the monthly reporting pack (optional).
-5. Review the **Structure**, **TDS**, **GST/RCM**, **Audit** and **Financials** sections.
-6. Refine rules in the **Rule Configuration** panel if needed (re-runs instantly).
-7. **Download** the Excel workbook and/or HTML summary from the Download panel.
-
-### Updating the rules
-
-- Edit keywords, section, rate, exclusions and thresholds directly in the **Rule Configuration** table.
-- **Export rules JSON** to save your tuned config; **Import rules JSON** to reload it next month.
-- A starter config lives at [`public/sample-rules.json`](public/sample-rules.json).
-- The hard-coded defaults are in [`src/utils/tdsRules.ts`](src/utils/tdsRules.ts) (`DEFAULT_RULES`).
+1. Open the app (local or the GitHub Pages URL).
+2. Set the **Month** in the header.
+3. **Upload the daybook** (.xlsx).
+4. Read the **Overview / P&L**, drill the **Expense → Party** and **Party / AP** views,
+   and **Download** the workbook.
 
 ---
 
 ## GitHub Pages deployment
 
-The repo includes a GitHub Actions workflow at
-[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) that builds and
-publishes to Pages on every push to `main`.
+A GitHub Actions workflow (`.github/workflows/deploy.yml`) builds and publishes to
+Pages on every push to `main`.
 
-**One-time setup:**
-
-1. Push this folder to a GitHub repo (e.g. `sungrow-review-engine`).
-2. In the repo: **Settings → Pages → Build and deployment → Source = GitHub Actions**.
-3. Make sure `VITE_BASE` matches your repo name. It is set in two places:
-   - `vite.config.ts` (default `'/sungrow-developers-daybook-review-2026/'`)
-   - the workflow's `VITE_BASE` env (`/sungrow-developers-daybook-review-2026/`)
-   If your repo has a different name, update both.
-4. Push to `main` — the site deploys to `https://<user>.github.io/<repo>/`.
-
-**Manual deploy (alternative)** using the `gh-pages` branch:
-
-```bash
-npm run deploy   # builds and pushes dist/ to the gh-pages branch
-```
-(then set **Settings → Pages → Source = gh-pages branch**).
+- **Settings → Pages → Source = GitHub Actions** (one-time).
+- `VITE_BASE` must equal `/<repo-name>/` — set in `vite.config.ts` and the workflow env
+  (`/sungrow-developers-daybook-review-2026/`).
+- The lockfile is intentionally **not** committed and CI uses `npm install` (the SheetJS
+  fork `@e965/xlsx` + npm's cross-version optional-dep handling break `npm ci`).
 
 ---
 
@@ -87,39 +90,23 @@ npm run deploy   # builds and pushes dist/ to the gh-pages branch
 
 ```
 src/
-  App.tsx                  orchestrates upload → review → dashboard → download
-  main.tsx                 React entry
+  App.tsx                  upload → MIS sections → download
   types.ts                 shared types
   utils/
-    excelParser.ts         File → WorkbookStructure (SheetJS, robust to odd headers)
-    structureDetector.ts   fuzzy column detection + daybook sheet pick
-    normalizer.ts          raw rows → normalized Txn[]
-    tdsRules.ts            DEFAULT_RULES + TDS classification engine
-    gstRules.ts            GST / RCM heuristic flags
-    auditRules.ts          audit exception + duplicate detection
-    financialsParser.ts    P&L sheet detection + metric extraction
-    review.ts              wires parsers + analyses into one ReviewResult
-    reportExcel.ts         13-sheet Excel workbook + CSV (SheetJS)
-    reportHtml.ts          single-page, email-friendly HTML report
+    excelParser.ts         File → sheets (@e965/xlsx, robust to odd headers)
+    structureDetector.ts   keyword column detection (GL code / text / party / ref / DR / CR)
+    normalizer.ts          rows → Txn[], line-type + TDS-section classification
+    mis.ts                 P&L + expense→party + party→heads engine (TDS / RCM / AP)
+    review.ts              wires parsing + MIS into one result
+    reportExcel.ts         MIS Excel workbook + CSV
   components/
-    FileUpload, DashboardCards, StructurePreview, TdsReview, GstReview,
-    AuditReview, FinancialPerformance, RulesEditor, DownloadPanel, ui
+    MisKpis, PnlHero, ExpenseMis (Expense→Party + Party/AP),
+    GroupTable (expandable), SortableTable, TransactionsExplorer,
+    FileUpload, DownloadPanel, ui, icons
 ```
 
-### Robustness
+Robust by design: skips blank rows, guesses the header row, tolerates merged cells,
+handles a missing amount column (`debit − credit`), and warns instead of crashing on a
+corrupt / truncated file.
 
-The parser is built to **not crash** on real-world files: it skips blank rows,
-guesses the header row when it isn't row 1, synthesises names for blank header
-cells, tolerates merged cells, handles a missing amount column (`debit − credit`),
-handles a missing financials file, and surfaces **warnings** instead of throwing.
-
-If an uploaded `.xlsx` is **corrupt or truncated** (e.g. a partial download), the
-app shows a warning rather than failing silently — re-download the file and retry.
-
----
-
-## Tech
-
-React 18 · Vite 5 · TypeScript · Tailwind CSS · SheetJS (xlsx) · file-saver.
-First iteration — favours a complete, usable monthly workflow over perfection.
-The key is repeatability: upload → review → refine rules → repeat next month.
+Tech: React 18 · Vite 5 · TypeScript · Tailwind CSS · `@e965/xlsx` · file-saver.

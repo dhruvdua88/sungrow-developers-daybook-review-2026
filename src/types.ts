@@ -286,6 +286,25 @@ export interface DaybookPnl {
   financeLines: GlLine[]
 }
 
+/** Party slice within an expense head. */
+export interface PartyBreak {
+  party: string
+  amount: number
+  tds: number
+  rcm: number
+  docs: number
+}
+
+/** Expense-head slice within a party. */
+export interface HeadBreak {
+  glCode: string
+  ledger: string
+  amount: number
+  tds: number
+  rcm: number
+  docs: number
+}
+
 /** Expense ledger (GL 6xxx/7xxx) rolled up against the TDS & RCM booked on its
  *  vendor invoices. Effective rate = TDS / expense. */
 export interface ExpenseTdsRow {
@@ -299,6 +318,7 @@ export interface ExpenseTdsRow {
   rcmRate: number | null
   vendors: number
   docs: number
+  parties: PartyBreak[] // party-wise breakdown (for expand)
 }
 
 /** Vendor (AP party) rolled up: expense booked, TDS, RCM, AP movement. */
@@ -311,6 +331,7 @@ export interface VendorApRow {
   apDebit: number // payments / debits to AP
   docs: number
   topLedger: string
+  heads: HeadBreak[] // where the party's spend is going (for expand)
 }
 
 export interface MisResult {

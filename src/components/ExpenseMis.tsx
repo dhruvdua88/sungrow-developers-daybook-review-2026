@@ -1,97 +1,104 @@
-import type { ExpenseTdsRow, VendorApRow } from '../types'
+import type { ExpenseTdsRow, HeadBreak, PartyBreak, VendorApRow } from '../types'
 import { Section, inr } from './ui'
-import { SortableTable, type Column } from './SortableTable'
+import { GroupTable } from './GroupTable'
+import type { Column } from './SortableTable'
 import { IconReceipt, IconScale } from './icons'
 
-const pctCell = (p: number | null, good: (p: number) => boolean) => {
+const pctCell = (p: number | null) => {
   if (p == null) return <span className="text-slate-400">—</span>
-  const cls = good(p) ? 'text-ok' : p > 0 ? 'text-review' : 'text-slate-400'
+  const cls = p >= 0.1 ? 'text-ok' : p > 0 ? 'text-review' : 'text-slate-400'
   return <span className={`num font-semibold ${cls}`}>{p.toFixed(1)}%</span>
 }
+const eff = (tds: number, amt: number) => (amt ? (tds / amt) * 100 : null)
 
-export function ExpenseTdsMis({ rows }: { rows: ExpenseTdsRow[] }) {
-  const cols: Column<ExpenseTdsRow>[] = [
-    { key: 'glCode', label: 'G/L Account', value: (r) => r.glCode },
-    { key: 'ledger', label: 'Expense Ledger', value: (r) => r.ledger, width: 200 },
-    { key: 'section', label: 'TDS Sec', value: (r) => r.section || '—' },
-    { key: 'expense', label: 'Expense (DR)', numeric: true, value: (r) => r.expense, render: (r) => inr(r.expense) },
-    { key: 'tds', label: 'TDS Deducted', numeric: true, value: (r) => r.tds, render: (r) => inr(r.tds) },
-    {
-      key: 'effRate',
-      label: 'TDS %',
-      numeric: true,
-      value: (r) => r.effRate ?? -1,
-      render: (r) => pctCell(r.effRate, (p) => p >= 0.1),
-    },
-    { key: 'rcm', label: 'RCM GST', numeric: true, value: (r) => r.rcm, render: (r) => (r.rcm ? inr(r.rcm) : '—') },
-    { key: 'vendors', label: 'Vendors', numeric: true, value: (r) => r.vendors },
-    { key: 'docs', label: 'Vouchers', numeric: true, value: (r) => r.docs },
+// ---- View 1: Expense head -> party breakdown ----
+export function ExpenseHeadView({ rows }: { rows: ExpenseTdsRow[] }) {
+  const parentCols: Column<ExpenseTdsRow>[] = [
+    { key: 'ledger', label: 'Expense Head (Ledger)', value: (r) => r.ledger, width: 210 },
+    { key: 'glCode', label: 'G/L', value: (r) => r.glCode },
+    { key: 'section', label: 'Sec', value: (r) => r.section || '—' },
+    { key: 'expense', label: 'Total Amount', numeric: true, value: (r) => r.expense, render: (r) => inr(r.expense) },
+    { key: 'tds', label: 'TDS', numeric: true, value: (r) => r.tds, render: (r) => inr(r.tds) },
+    { key: 'eff', label: 'TDS %', numeric: true, value: (r) => r.effRate ?? -1, render: (r) => pctCell(r.effRate) },
+    { key: 'rcm', label: 'RCM', numeric: true, value: (r) => r.rcm, render: (r) => (r.rcm ? inr(r.rcm) : '—') },
+    { key: 'vendors', label: 'Parties', numeric: true, value: (r) => r.vendors },
   ]
-
-  const totalExp = rows.reduce((s, r) => s + r.expense, 0)
-  const totalTds = rows.reduce((s, r) => s + r.tds, 0)
-  const totalRcm = rows.reduce((s, r) => s + r.rcm, 0)
-
+  const childCols: Column<PartyBreak>[] = [
+    { key: 'party', label: 'Party', value: (r) => r.party, width: 210 },
+    { key: 'g', label: '', value: () => '' },
+    { key: 's', label: '', value: () => '' },
+    { key: 'amount', label: 'Amount', numeric: true, value: (r) => r.amount, render: (r) => inr(r.amount) },
+    { key: 'tds', label: 'TDS', numeric: true, value: (r) => r.tds, render: (r) => inr(r.tds) },
+    { key: 'eff', label: 'TDS %', numeric: true, value: (r) => eff(r.tds, r.amount) ?? -1, render: (r) => pctCell(eff(r.tds, r.amount)) },
+    { key: 'rcm', label: 'RCM', numeric: true, value: (r) => r.rcm, render: (r) => (r.rcm ? inr(r.rcm) : '—') },
+    { key: 'docs', label: 'Vch', numeric: true, value: (r) => r.docs },
+  ]
+  const totExp = rows.reduce((s, r) => s + r.expense, 0)
+  const totTds = rows.reduce((s, r) => s + r.tds, 0)
+  const totRcm = rows.reduce((s, r) => s + r.rcm, 0)
   return (
     <Section
-      title="Expense → TDS / RCM (MIS)"
-      subtitle="Every expense ledger (GL 6xxx/7xxx) that hits a vendor invoice — total expense booked, TDS deducted and RCM GST in the same vouchers, with the effective rate. Sort/filter any column."
-      id="expense-tds"
+      title="Expense Head → Party"
+      subtitle="Each expense ledger (GL 6xxx/7xxx) with its TDS, effective rate and RCM. Click a head to see the party-wise split."
+      id="expense-head"
       icon={<IconReceipt className="h-5 w-5" />}
     >
       <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Expense thru AP" value={inr(totalExp)} />
-        <Kpi label="TDS deducted" value={inr(totalTds)} accent="text-brand" />
-        <Kpi label="Effective TDS %" value={totalExp ? `${((totalTds / totalExp) * 100).toFixed(2)}%` : '—'} accent="text-ok" />
-        <Kpi label="RCM GST" value={inr(totalRcm)} accent="text-manual" />
+        <Kpi label="Total expense (AP)" value={inr(totExp)} />
+        <Kpi label="TDS deducted" value={inr(totTds)} accent="text-brand" />
+        <Kpi label="Effective TDS %" value={totExp ? `${((totTds / totExp) * 100).toFixed(2)}%` : '—'} accent="text-ok" />
+        <Kpi label="RCM (REVE CH)" value={inr(totRcm)} accent="text-manual" />
       </div>
-      <SortableTable
-        columns={cols}
-        rows={rows}
+      <GroupTable
+        groups={rows}
+        parentCols={parentCols}
+        childCols={childCols}
+        getChildren={(r) => r.parties}
+        rowKey={(r) => r.glCode + r.ledger}
         initialSort="expense"
-        searchPlaceholder="Filter ledger / GL / section…"
-        maxRows={500}
+        searchPlaceholder="Filter expense head / GL / section…"
       />
-      <p className="mt-2 text-xs text-slatex">
-        TDS &amp; RCM are attributed pro-rata across the expense lines of each vendor voucher. A low
-        TDS % on a contractor/rent/professional head is a possible short / non-deduction — drill in
-        the Transactions tab (filter Line&nbsp;Type = Expense / TDS).
-      </p>
     </Section>
   )
 }
 
-export function VendorApMis({ rows }: { rows: VendorApRow[] }) {
-  const cols: Column<VendorApRow>[] = [
-    { key: 'party', label: 'Vendor (Accounting pro.)', value: (r) => r.party, width: 230 },
-    { key: 'topLedger', label: 'Main expense head', value: (r) => r.topLedger, width: 180 },
-    { key: 'expense', label: 'Expense (DR)', numeric: true, value: (r) => r.expense, render: (r) => inr(r.expense) },
+// ---- View 2: Party (AP) -> expense heads (bird's-eye) ----
+export function PartyApView({ rows }: { rows: VendorApRow[] }) {
+  const parentCols: Column<VendorApRow>[] = [
+    { key: 'party', label: 'Party (AP / Accounting pro.)', value: (r) => r.party, width: 230 },
+    { key: 'expense', label: 'Total Amount', numeric: true, value: (r) => r.expense, render: (r) => inr(r.expense) },
     { key: 'tds', label: 'TDS', numeric: true, value: (r) => r.tds, render: (r) => inr(r.tds) },
-    {
-      key: 'eff',
-      label: 'TDS %',
-      numeric: true,
-      value: (r) => (r.expense ? (r.tds / r.expense) * 100 : -1),
-      render: (r) => pctCell(r.expense ? (r.tds / r.expense) * 100 : null, (p) => p >= 0.1),
-    },
+    { key: 'eff', label: 'TDS %', numeric: true, value: (r) => eff(r.tds, r.expense) ?? -1, render: (r) => pctCell(eff(r.tds, r.expense)) },
     { key: 'rcm', label: 'RCM', numeric: true, value: (r) => r.rcm, render: (r) => (r.rcm ? inr(r.rcm) : '—') },
-    { key: 'apCredit', label: 'AP Invoiced (CR)', numeric: true, value: (r) => r.apCredit, render: (r) => inr(r.apCredit) },
-    { key: 'apDebit', label: 'AP Paid (DR)', numeric: true, value: (r) => r.apDebit, render: (r) => inr(r.apDebit) },
-    { key: 'docs', label: 'Vouchers', numeric: true, value: (r) => r.docs },
+    { key: 'apCredit', label: 'AP Invoiced', numeric: true, value: (r) => r.apCredit, render: (r) => inr(r.apCredit) },
+    { key: 'apDebit', label: 'AP Paid', numeric: true, value: (r) => r.apDebit, render: (r) => inr(r.apDebit) },
+    { key: 'out', label: 'Outstanding', numeric: true, value: (r) => r.apCredit - r.apDebit, render: (r) => inr(r.apCredit - r.apDebit) },
+  ]
+  const childCols: Column<HeadBreak>[] = [
+    { key: 'ledger', label: 'Expense head', value: (r) => r.ledger, width: 230 },
+    { key: 'amount', label: 'Amount', numeric: true, value: (r) => r.amount, render: (r) => inr(r.amount) },
+    { key: 'tds', label: 'TDS', numeric: true, value: (r) => r.tds, render: (r) => inr(r.tds) },
+    { key: 'eff', label: 'TDS %', numeric: true, value: (r) => eff(r.tds, r.amount) ?? -1, render: (r) => pctCell(eff(r.tds, r.amount)) },
+    { key: 'rcm', label: 'RCM', numeric: true, value: (r) => r.rcm, render: (r) => (r.rcm ? inr(r.rcm) : '—') },
+    { key: 'docs', label: 'Vch', numeric: true, value: (r) => r.docs },
+    { key: 'sp1', label: '', value: () => '' },
+    { key: 'sp2', label: '', value: () => '' },
   ]
   return (
     <Section
-      title="Vendor / AP Ledger (MIS)"
-      subtitle="All accounts payable parties — expense booked, TDS & RCM, and AP invoiced vs paid. The party reference is SAP “Accounting pro.”."
-      id="vendors"
+      title="Party / AP — Bird's-eye"
+      subtitle="Every accounts-payable party: total spend, TDS, RCM, and AP invoiced vs paid (outstanding). Click a party to see where the money is going."
+      id="party-ap"
       icon={<IconScale className="h-5 w-5" />}
     >
-      <SortableTable
-        columns={cols}
-        rows={rows}
+      <GroupTable
+        groups={rows}
+        parentCols={parentCols}
+        childCols={childCols}
+        getChildren={(r) => r.heads}
+        rowKey={(r) => r.party}
         initialSort="expense"
-        searchPlaceholder="Filter vendor / expense head…"
-        maxRows={500}
+        searchPlaceholder="Filter party…"
       />
     </Section>
   )

@@ -3,23 +3,16 @@ import { saveAs } from 'file-saver'
 import type { ReviewResult, RuleConfig } from '../types'
 
 // ---------------------------------------------------------------------------
-// reportExcel: build the multi-sheet review workbook with SheetJS.
-// Note: the community build of SheetJS does not write cell styles; we still
-// apply column widths, freeze panes and bold-ish header rows via a fallback.
+// reportExcel: lean MIS workbook — P&L, Expense→Party, Party→Heads, Transactions.
 // ---------------------------------------------------------------------------
 
-const inr = (n: number) =>
-  (n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+const inr = (n: number) => (n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
 
-/** Create a worksheet from an array-of-objects with a header row + freeze. */
 function sheetFromRows(rows: Record<string, unknown>[], cols?: string[]): XLSX.WorkSheet {
   const header = cols ?? (rows.length ? Object.keys(rows[0]) : [])
   const aoa: unknown[][] = [header, ...rows.map((r) => header.map((h) => r[h] ?? ''))]
   const ws = XLSX.utils.aoa_to_sheet(aoa)
-  // Freeze the header row.
-  ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft' }
-  ;(ws as any)['!panes'] = [{ ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' }]
-  // Auto column widths (cap at 60).
+  ;(ws as any)['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft' }
   ws['!cols'] = header.map((h) => {
     let w = String(h).length
     for (const r of rows) w = Math.max(w, String(r[h] ?? '').length)
@@ -28,263 +21,110 @@ function sheetFromRows(rows: Record<string, unknown>[], cols?: string[]): XLSX.W
   return ws
 }
 
-function addSheet(wb: XLSX.WorkBook, name: string, rows: Record<string, unknown>[], cols?: string[]) {
-  // Excel sheet names: max 31 chars, no : \ / ? * [ ]
+function addSheet(wb: XLSX.WorkBook, name: string, rows: Record<string, unknown>[]) {
   const safe = name.replace(/[:\\/?*[\]]/g, ' ').slice(0, 31)
-  const ws = rows.length ? sheetFromRows(rows, cols) : XLSX.utils.aoa_to_sheet([[`No ${name} items.`]])
+  const ws = rows.length ? sheetFromRows(rows) : XLSX.utils.aoa_to_sheet([[`No ${name} items.`]])
   XLSX.utils.book_append_sheet(wb, ws, safe)
 }
 
-export function buildWorkbook(result: ReviewResult, rules: RuleConfig): XLSX.WorkBook {
+export function buildWorkbook(result: ReviewResult, _rules: RuleConfig): XLSX.WorkBook {
   const wb = XLSX.utils.book_new()
-  const k = result.kpis
+  const mis = result.mis
+  const p = mis.pnl
 
   // 1. Executive Summary
-  addSheet(wb, 'Executive Summary', [
+  addSheet(wb, 'Summary', [
     { Metric: 'Entity', Value: 'Sungrow Developers India Pvt Ltd (SDIPL)' },
     { Metric: 'Month', Value: result.month },
     { Metric: 'Generated', Value: result.generatedAt },
-    { Metric: 'Transactions reviewed', Value: k.totalTxns },
-    { Metric: 'Total transaction value (₹)', Value: inr(k.totalValue) },
-    { Metric: 'Potential TDS base (₹)', Value: inr(k.tdsBase) },
-    { Metric: 'Expected TDS as per rules (₹)', Value: inr(k.expectedTds) },
-    { Metric: 'Unmapped transactions', Value: k.unmappedCount },
-    { Metric: 'High-value transactions', Value: k.highValueCount },
-    { Metric: 'Possible RCM items', Value: k.rcmCount },
-    { Metric: 'Audit exceptions', Value: k.auditExceptionCount },
+    { Metric: 'Transactions', Value: result.transactions.length },
+    { Metric: 'Revenue', Value: inr(p.revenue) },
+    { Metric: 'Gross Profit', Value: inr(p.grossProfit) },
+    { Metric: 'Profit/Loss before tax', Value: inr(p.pbt) },
+    { Metric: 'Expense thru AP', Value: inr(mis.totalExpense) },
+    { Metric: 'TDS deducted', Value: inr(mis.totalTds) },
+    { Metric: 'Effective TDS %', Value: mis.effTdsRate != null ? mis.effTdsRate.toFixed(2) + '%' : '—' },
+    { Metric: 'RCM (REVE CH)', Value: inr(mis.totalRcm) },
   ])
 
-  // 1b. P&L (from daybook) + Expense->TDS/RCM MIS + Vendor AP MIS.
-  const mis = result.mis
-  if (mis.pnl.available) {
+  // 2. P&L (daybook)
+  if (p.available) {
     addSheet(wb, 'P&L (Daybook)', [
-      { Line: 'Revenue', Amount: inr(mis.pnl.revenue), '%': '100%' },
-      { Line: 'Cost of sales', Amount: inr(mis.pnl.cogs), '%': '' },
-      { Line: 'Gross Profit', Amount: inr(mis.pnl.grossProfit), '%': mis.pnl.grossMarginPct?.toFixed(1) + '%' },
-      { Line: 'Operating expenses', Amount: inr(mis.pnl.operatingExpenses), '%': '' },
-      { Line: 'Finance (net)', Amount: inr(mis.pnl.finance), '%': '' },
-      { Line: mis.pnl.pbt < 0 ? 'Loss before tax' : 'Profit before tax', Amount: inr(mis.pnl.pbt), '%': mis.pnl.netMarginPct?.toFixed(1) + '%' },
-      ...mis.pnl.opexLines.map((l) => ({ Line: `  ${l.name} (${l.code})`, Amount: inr(l.amount), '%': '' })),
+      { Line: 'Revenue', Amount: inr(p.revenue), '%': '100%' },
+      { Line: 'Less: Cost of sales', Amount: inr(-p.cogs), '%': '' },
+      { Line: 'Gross Profit', Amount: inr(p.grossProfit), '%': p.grossMarginPct?.toFixed(1) + '%' },
+      { Line: 'Less: Operating expenses', Amount: inr(-p.operatingExpenses), '%': '' },
+      { Line: 'Less: Finance (net)', Amount: inr(-p.finance), '%': '' },
+      { Line: p.pbt < 0 ? 'Loss before tax' : 'Profit before tax', Amount: inr(p.pbt), '%': p.netMarginPct?.toFixed(1) + '%' },
+      { Line: '', Amount: '', '%': '' },
+      ...p.opexLines.map((l) => ({ Line: `  ${l.name} (${l.code})`, Amount: inr(l.amount), '%': '' })),
     ])
   }
-  addSheet(
-    wb,
-    'Expense TDS RCM MIS',
-    mis.expenseTds.map((r) => ({
-      'G/L Account': r.glCode,
-      'Expense Ledger': r.ledger,
-      'TDS Sec': r.section,
-      'Expense (DR)': inr(r.expense),
-      'TDS Deducted': inr(r.tds),
-      'TDS %': r.effRate != null ? r.effRate.toFixed(2) + '%' : '',
-      'RCM GST': inr(r.rcm),
-      Vendors: r.vendors,
-      Vouchers: r.docs,
-    })),
-  )
-  addSheet(
-    wb,
-    'Vendor AP MIS',
-    mis.vendors.map((v) => ({
-      'Vendor (Accounting pro.)': v.party,
-      'Main expense head': v.topLedger,
-      'Expense (DR)': inr(v.expense),
-      TDS: inr(v.tds),
-      'TDS %': v.expense ? ((v.tds / v.expense) * 100).toFixed(2) + '%' : '',
-      RCM: inr(v.rcm),
-      'AP Invoiced (CR)': inr(v.apCredit),
-      'AP Paid (DR)': inr(v.apDebit),
-      Vouchers: v.docs,
-    })),
-  )
 
-  // 2. File Structure
-  const structRows: Record<string, unknown>[] = []
-  for (const wbk of [result.daybookStructure, result.financialsStructure]) {
-    if (!wbk) continue
-    for (const s of wbk.sheets) {
-      structRows.push({
-        File: wbk.fileName,
-        Sheet: s.name,
-        'Header row': s.headerRowIndex + 1,
-        'Data rows': s.rows.length,
-        Columns: s.headers.join(' | '),
+  // 3. Expense Head → Party (flat)
+  const ehp: Record<string, unknown>[] = []
+  for (const r of mis.expenseTds) {
+    ehp.push({
+      'Expense Head': r.ledger,
+      'G/L': r.glCode,
+      Party: '— TOTAL —',
+      Sec: r.section,
+      Amount: inr(r.expense),
+      TDS: inr(r.tds),
+      'TDS %': r.effRate != null ? r.effRate.toFixed(1) + '%' : '',
+      RCM: inr(r.rcm),
+      Vch: r.docs,
+    })
+    for (const pr of r.parties) {
+      ehp.push({
+        'Expense Head': r.ledger,
+        'G/L': r.glCode,
+        Party: pr.party,
+        Sec: '',
+        Amount: inr(pr.amount),
+        TDS: inr(pr.tds),
+        'TDS %': pr.amount ? ((pr.tds / pr.amount) * 100).toFixed(1) + '%' : '',
+        RCM: inr(pr.rcm),
+        Vch: pr.docs,
       })
     }
   }
-  addSheet(wb, 'File Structure', structRows)
+  addSheet(wb, 'Expense Head x Party', ehp)
 
-  // 3. TDS Vendor Summary
-  addSheet(
-    wb,
-    'TDS Vendor Summary',
-    result.tds.vendorSummary.map((v) => ({
-      Vendor: v.vendor,
-      Txns: v.txnCount,
-      'Total Amount': inr(v.totalAmount),
-      'TDS Base': inr(v.tdsBase),
-      'Expected TDS': inr(v.expectedTds),
-      Sections: v.sections.join(', '),
-    })),
-  )
-
-  // 3b. TDS Waterfall (actual-deducted) — only when available.
-  if (result.tdsWaterfall.available) {
-    addSheet(
-      wb,
-      'TDS Waterfall',
-      result.tdsWaterfall.sections.map((s) => ({
-        Section: s.section,
-        Nature: s.nature,
-        'Rate %': s.rate || 'salary',
-        'TDS Deducted': inr(s.deducted),
-        'Implied Base': s.rate ? inr(s.impliedBase) : 'n/a',
-        Parties: s.parties,
-      })),
-    )
-    addSheet(
-      wb,
-      'Party TDS Waterfall',
-      result.tdsWaterfall.parties.map((p) => ({
-        'Party (Accounting pro.)': p.party,
-        Section: p.section,
-        'Rate %': p.rate || 'n/a',
-        'TDS Deducted': inr(p.deducted),
-        'Implied Base': p.rate ? inr(p.impliedBase) : 'n/a',
-        Vouchers: p.docs.length,
-        Flag: p.flag,
-      })),
-    )
-  }
-
-  // 4. TDS Ledger Summary
-  addSheet(
-    wb,
-    'TDS Ledger Summary',
-    result.tds.ledgerSummary.map((l) => ({
-      Ledger: l.ledger,
-      Section: l.section,
-      Txns: l.txnCount,
-      'Total Amount': inr(l.totalAmount),
-      'Expected TDS': inr(l.expectedTds),
-      Status: l.status,
-    })),
-  )
-
-  // 5. Potential TDS Transactions
-  addSheet(
-    wb,
-    'Potential TDS Txns',
-    result.tds.potential.map((c) => ({
-      Date: c.date,
-      Voucher: c.voucher_no,
-      Ledger: c.ledger,
-      Vendor: c.vendor,
-      Narration: c.narration,
-      Amount: inr(c.absolute_amount),
-      Section: c.tdsSection,
-      'Rate %': c.tdsRate,
-      'Expected TDS': inr(c.expectedTds),
-      Status: c.tdsStatus,
-      Remarks: c.tdsRemarks,
-    })),
-  )
-
-  // 6. Unmapped Ledgers
-  addSheet(
-    wb,
-    'Unmapped Ledgers',
-    result.tds.unmappedLedgers.map((l) => ({
-      Ledger: l.ledger,
-      Txns: l.txnCount,
-      'Total Amount': inr(l.totalAmount),
-      Status: 'Review',
-    })),
-  )
-
-  // 7. GST RCM Review
-  addSheet(
-    wb,
-    'GST RCM Review',
-    result.gst.possibleRcm.map((f) => ({
-      Date: f.txn.date,
-      Ledger: f.txn.ledger,
-      Vendor: f.txn.vendor,
-      Narration: f.txn.narration,
-      Amount: inr(f.txn.absolute_amount),
-      Category: f.category,
-      Status: f.status,
-      Remarks: f.remarks,
-    })),
-  )
-
-  // 8. GST Exceptions
-  addSheet(
-    wb,
-    'GST Exceptions',
-    [...result.gst.withoutGstin, ...result.gst.exceptions].map((f) => ({
-      Date: f.txn.date,
-      Ledger: f.txn.ledger,
-      Vendor: f.txn.vendor,
-      Amount: inr(f.txn.absolute_amount),
-      Category: f.category,
-      Status: f.status,
-      Remarks: f.remarks,
-    })),
-  )
-
-  // 9. Audit Exceptions
-  addSheet(
-    wb,
-    'Audit Exceptions',
-    result.audit.exceptions.map((f) => ({
-      Date: f.txn.date,
-      Voucher: f.txn.voucher_no,
-      Ledger: f.txn.ledger,
-      Vendor: f.txn.vendor,
-      Amount: inr(f.txn.absolute_amount),
-      Category: f.category,
-      Status: f.status,
-      Remarks: f.remarks,
-    })),
-  )
-
-  // 10. Related Party Review
-  addSheet(
-    wb,
-    'Related Party Review',
-    result.audit.relatedParty.map((f) => ({
-      Date: f.txn.date,
-      Ledger: f.txn.ledger,
-      Vendor: f.txn.vendor,
-      Narration: f.txn.narration,
-      Amount: inr(f.txn.absolute_amount),
-      Status: f.status,
-      Remarks: f.remarks,
-    })),
-  )
-
-  // 11. Financial Performance
-  const fin = result.financials
-  const finRows: Record<string, unknown>[] = []
-  if (fin) {
-    finRows.push({ Item: 'Detected P&L sheet', Value: fin.detectedSheet ?? '(none)' })
-    finRows.push({ Item: 'Revenue', Value: fin.revenue != null ? inr(fin.revenue) : 'n/a' })
-    finRows.push({ Item: 'Cost', Value: fin.cost != null ? inr(fin.cost) : 'n/a' })
-    finRows.push({ Item: 'Gross Profit', Value: fin.grossProfit != null ? inr(fin.grossProfit) : 'n/a' })
-    finRows.push({
-      Item: 'Operating Expenses',
-      Value: fin.operatingExpenses != null ? inr(fin.operatingExpenses) : 'n/a',
+  // 4. Party (AP) → Heads (flat)
+  const pah: Record<string, unknown>[] = []
+  for (const v of mis.vendors) {
+    pah.push({
+      Party: v.party,
+      'Expense Head': '— TOTAL —',
+      Amount: inr(v.expense),
+      TDS: inr(v.tds),
+      RCM: inr(v.rcm),
+      'AP Invoiced': inr(v.apCredit),
+      'AP Paid': inr(v.apDebit),
+      Outstanding: inr(v.apCredit - v.apDebit),
+      Vch: v.docs,
     })
-    finRows.push({ Item: 'Net Profit', Value: fin.netProfit != null ? inr(fin.netProfit) : 'n/a' })
-    fin.variances.forEach((v, i) => finRows.push({ Item: `Note ${i + 1}`, Value: v }))
+    for (const h of v.heads) {
+      pah.push({
+        Party: v.party,
+        'Expense Head': h.ledger,
+        Amount: inr(h.amount),
+        TDS: inr(h.tds),
+        RCM: inr(h.rcm),
+        'AP Invoiced': '',
+        'AP Paid': '',
+        Outstanding: '',
+        Vch: h.docs,
+      })
+    }
   }
-  addSheet(wb, 'Financial Performance', finRows)
+  addSheet(wb, 'Party AP x Head', pah)
 
-  // 12. Normalized Daybook
+  // 5. Normalized transactions
   addSheet(
     wb,
-    'Normalized Daybook',
+    'Transactions',
     result.transactions.map((t) => ({
       Date: t.date,
       'Doc Type': t.voucher_type,
@@ -298,25 +138,6 @@ export function buildWorkbook(result: ReviewResult, rules: RuleConfig): XLSX.Wor
       'TDS Section': t.tdsLedgerSection,
       Debit: t.debit,
       Credit: t.credit,
-      PAN: t.pan,
-      GSTIN: t.gstin,
-    })),
-  )
-
-  // 13. Rule Mapping
-  addSheet(
-    wb,
-    'Rule Mapping',
-    rules.tds.map((r) => ({
-      Section: r.section,
-      Label: r.label,
-      'Rate %': r.rate,
-      'Threshold (single)': r.thresholdSingle ?? '',
-      'Threshold (annual)': r.thresholdAnnual ?? '',
-      Excluded: r.excluded ? 'Yes' : '',
-      'Manual Review': r.manualReview ? 'Yes' : '',
-      Keywords: r.keywords.join(', '),
-      Note: r.note ?? '',
     })),
   )
 
@@ -329,28 +150,27 @@ export function downloadWorkbook(result: ReviewResult, rules: RuleConfig) {
   const blob = new Blob([out], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   })
-  saveAs(blob, `SDIPL_Monthly_Review_${result.month || 'report'}.xlsx`)
+  saveAs(blob, `SDIPL_Daybook_MIS_${result.month || 'report'}.xlsx`)
 }
 
 /** Download the normalized daybook as CSV. */
 export function downloadNormalizedCsv(result: ReviewResult) {
   const rows = result.transactions.map((t) => ({
     date: t.date,
-    voucher_no: t.voucher_no,
-    voucher_type: t.voucher_type,
+    doc_type: t.voucher_type,
+    doc_no: t.voucher_no,
+    gl_account: t.gl_code,
     ledger: t.ledger,
-    vendor: t.vendor,
-    narration: t.narration,
-    invoice_no: t.invoice_no,
+    party: t.vendor,
+    reference: t.reference,
+    text: t.narration,
+    line_type: t.lineType,
+    tds_section: t.tdsLedgerSection,
     debit: t.debit,
     credit: t.credit,
-    amount: t.amount,
-    absolute_amount: t.absolute_amount,
-    pan: t.pan,
-    gstin: t.gstin,
   }))
   const ws = XLSX.utils.json_to_sheet(rows)
   const csv = XLSX.utils.sheet_to_csv(ws)
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-  saveAs(blob, `SDIPL_Normalized_Daybook_${result.month || 'report'}.csv`)
+  saveAs(blob, `SDIPL_Daybook_${result.month || 'report'}.csv`)
 }

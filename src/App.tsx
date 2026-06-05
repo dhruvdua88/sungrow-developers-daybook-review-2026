@@ -7,29 +7,20 @@ import { DEFAULT_RULES } from './utils/tdsRules'
 import { FileUpload } from './components/FileUpload'
 import { MisKpis } from './components/MisKpis'
 import { PnlHero } from './components/PnlHero'
-import { ExpenseTdsMis, VendorApMis } from './components/ExpenseMis'
-import { StructurePreview } from './components/StructurePreview'
-import { TdsWaterfallView } from './components/TdsWaterfallView'
+import { ExpenseHeadView, PartyApView } from './components/ExpenseMis'
 import { TransactionsExplorer } from './components/TransactionsExplorer'
-import { GstReview } from './components/GstReview'
-import { AuditReview } from './components/AuditReview'
-import { FinancialPerformance } from './components/FinancialPerformance'
-import { RulesEditor } from './components/RulesEditor'
 import { DownloadPanel } from './components/DownloadPanel'
 import { Section } from './components/ui'
 import { IconUpload, IconGrid, IconBolt } from './components/icons'
 
+const REPO_URL = 'https://github.com/dhruvdua88/sungrow-developers-daybook-review-2026'
+
 const NAV = [
   ['overview', 'Overview'],
   ['pnl', 'P&L'],
-  ['expense-tds', 'Expense · TDS'],
-  ['vendors', 'Vendors (AP)'],
+  ['expense-head', 'Expense → Party'],
+  ['party-ap', 'Party / AP'],
   ['transactions', 'Transactions'],
-  ['waterfall', 'TDS Waterfall'],
-  ['gst', 'GST / RCM'],
-  ['audit', 'Audit'],
-  ['financials', 'Financials'],
-  ['rules', 'Rules'],
   ['download', 'Download'],
 ] as const
 
@@ -116,21 +107,35 @@ export default function App() {
                 </div>
                 <div>
                   <h1 className="font-display text-xl font-extrabold leading-tight tracking-tight text-white">
-                    Sungrow Monthly Review Engine
+                    Sungrow Daybook MIS
                   </h1>
                   <p className="text-[12px] font-medium text-white/75">
-                    SDIPL · in-browser TDS / GST / audit / financial review · no data leaves your machine
+                    SDIPL · P&L, expense → party &amp; party-AP MIS from the daybook · runs locally, no data leaves your machine
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 rounded-xl bg-white/15 px-3 py-1.5 ring-1 ring-white/25 backdrop-blur">
-                <span className="text-xs font-semibold uppercase tracking-wide text-white/80">Month</span>
-                <input
-                  className="w-24 rounded-lg border-0 bg-white/95 px-2 py-1 text-sm font-semibold text-ink outline-none focus:ring-2 focus:ring-white"
-                  value={month}
-                  onChange={(e) => setMonth(e.target.value)}
-                  placeholder="May-26"
-                />
+              <div className="flex items-center gap-2">
+                <a
+                  href={REPO_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="View source on GitHub"
+                  className="flex items-center gap-1.5 rounded-xl bg-white/15 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-white/25"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+                    <path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.3-1.8-1.3-1.8-1.1-.7 0-.7 0-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17 5 18 5.3 18 5.3c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z" />
+                  </svg>
+                  GitHub
+                </a>
+                <div className="flex items-center gap-2 rounded-xl bg-white/15 px-3 py-1.5 ring-1 ring-white/25 backdrop-blur">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-white/80">Month</span>
+                  <input
+                    className="w-24 rounded-lg border-0 bg-white/95 px-2 py-1 text-sm font-semibold text-ink outline-none focus:ring-2 focus:ring-white"
+                    value={month}
+                    onChange={(e) => setMonth(e.target.value)}
+                    placeholder="May-26"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -211,37 +216,21 @@ export default function App() {
 
         {hasData ? (
           <>
-            {/* MIS-first */}
             <PnlHero pnl={result.mis.pnl} />
-            <ExpenseTdsMis rows={result.mis.expenseTds} />
-            <VendorApMis rows={result.mis.vendors} />
+            <ExpenseHeadView rows={result.mis.expenseTds} />
+            <PartyApView rows={result.mis.vendors} />
             <TransactionsExplorer txns={result.transactions} />
-
-            {/* Tax & audit (actual-basis) */}
-            <TdsWaterfallView wf={result.tdsWaterfall} />
-            <GstReview gst={result.gst} />
-            <AuditReview audit={result.audit} />
-
-            <FinancialPerformance fin={result.financials} />
-            <StructurePreview
-              daybook={daybook}
-              financials={financials}
-              columnMap={result.columnMap}
-              detectedSheet={result.detectedDaybookSheet}
-            />
           </>
         ) : (
           <Section title="Get started" icon={<IconBolt className="h-5 w-5" />} id="pnl">
             <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-12 text-center">
               <IconUpload className="h-8 w-8 text-slate-300" />
               <p className="text-sm font-medium text-slatex">
-                Upload a daybook to build the P&amp;L, expense → TDS / RCM MIS and vendor ledger.
+                Upload a daybook to build the P&amp;L, expense → party and party-AP views.
               </p>
             </div>
           </Section>
         )}
-
-        <RulesEditor rules={rules} onChange={setRules} />
 
         <DownloadPanel result={result} rules={rules} />
 
