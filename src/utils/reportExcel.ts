@@ -54,6 +54,50 @@ export function buildWorkbook(result: ReviewResult, rules: RuleConfig): XLSX.Wor
     { Metric: 'Audit exceptions', Value: k.auditExceptionCount },
   ])
 
+  // 1b. P&L (from daybook) + Expense->TDS/RCM MIS + Vendor AP MIS.
+  const mis = result.mis
+  if (mis.pnl.available) {
+    addSheet(wb, 'P&L (Daybook)', [
+      { Line: 'Revenue', Amount: inr(mis.pnl.revenue), '%': '100%' },
+      { Line: 'Cost of sales', Amount: inr(mis.pnl.cogs), '%': '' },
+      { Line: 'Gross Profit', Amount: inr(mis.pnl.grossProfit), '%': mis.pnl.grossMarginPct?.toFixed(1) + '%' },
+      { Line: 'Operating expenses', Amount: inr(mis.pnl.operatingExpenses), '%': '' },
+      { Line: 'Finance (net)', Amount: inr(mis.pnl.finance), '%': '' },
+      { Line: mis.pnl.pbt < 0 ? 'Loss before tax' : 'Profit before tax', Amount: inr(mis.pnl.pbt), '%': mis.pnl.netMarginPct?.toFixed(1) + '%' },
+      ...mis.pnl.opexLines.map((l) => ({ Line: `  ${l.name} (${l.code})`, Amount: inr(l.amount), '%': '' })),
+    ])
+  }
+  addSheet(
+    wb,
+    'Expense TDS RCM MIS',
+    mis.expenseTds.map((r) => ({
+      'G/L Account': r.glCode,
+      'Expense Ledger': r.ledger,
+      'TDS Sec': r.section,
+      'Expense (DR)': inr(r.expense),
+      'TDS Deducted': inr(r.tds),
+      'TDS %': r.effRate != null ? r.effRate.toFixed(2) + '%' : '',
+      'RCM GST': inr(r.rcm),
+      Vendors: r.vendors,
+      Vouchers: r.docs,
+    })),
+  )
+  addSheet(
+    wb,
+    'Vendor AP MIS',
+    mis.vendors.map((v) => ({
+      'Vendor (Accounting pro.)': v.party,
+      'Main expense head': v.topLedger,
+      'Expense (DR)': inr(v.expense),
+      TDS: inr(v.tds),
+      'TDS %': v.expense ? ((v.tds / v.expense) * 100).toFixed(2) + '%' : '',
+      RCM: inr(v.rcm),
+      'AP Invoiced (CR)': inr(v.apCredit),
+      'AP Paid (DR)': inr(v.apDebit),
+      Vouchers: v.docs,
+    })),
+  )
+
   // 2. File Structure
   const structRows: Record<string, unknown>[] = []
   for (const wbk of [result.daybookStructure, result.financialsStructure]) {

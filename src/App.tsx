@@ -5,9 +5,10 @@ import { runReview } from './utils/review'
 import { DEFAULT_RULES } from './utils/tdsRules'
 
 import { FileUpload } from './components/FileUpload'
-import { DashboardCards } from './components/DashboardCards'
+import { MisKpis } from './components/MisKpis'
+import { PnlHero } from './components/PnlHero'
+import { ExpenseTdsMis, VendorApMis } from './components/ExpenseMis'
 import { StructurePreview } from './components/StructurePreview'
-import { TdsReview } from './components/TdsReview'
 import { TdsWaterfallView } from './components/TdsWaterfallView'
 import { TransactionsExplorer } from './components/TransactionsExplorer'
 import { GstReview } from './components/GstReview'
@@ -19,10 +20,12 @@ import { Section } from './components/ui'
 import { IconUpload, IconGrid, IconBolt } from './components/icons'
 
 const NAV = [
-  ['structure', 'Structure'],
-  ['waterfall', 'TDS Waterfall'],
+  ['overview', 'Overview'],
+  ['pnl', 'P&L'],
+  ['expense-tds', 'Expense · TDS'],
+  ['vendors', 'Vendors (AP)'],
   ['transactions', 'Transactions'],
-  ['tds', 'TDS Rules'],
+  ['waterfall', 'TDS Waterfall'],
   ['gst', 'GST / RCM'],
   ['audit', 'Audit'],
   ['financials', 'Financials'],
@@ -39,7 +42,7 @@ export default function App() {
   const [financialsName, setFinancialsName] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [parseError, setParseError] = useState<string | null>(null)
-  const [active, setActive] = useState<string>('structure')
+  const [active, setActive] = useState<string>('overview')
 
   const onDaybook = async (file: File) => {
     setBusy('Parsing daybook…')
@@ -196,42 +199,47 @@ export default function App() {
           )}
         </Section>
 
-        {/* Executive dashboard */}
+        {/* Overview — MIS KPIs */}
         <Section
-          title="Executive Dashboard"
+          title="Management Overview"
           subtitle={`Generated ${result.generatedAt}`}
           icon={<IconGrid className="h-5 w-5" />}
+          id="overview"
         >
-          <DashboardCards kpis={result.kpis} />
+          <MisKpis mis={result.mis} kpis={result.kpis} />
         </Section>
-
-        <StructurePreview
-          daybook={daybook}
-          financials={financials}
-          columnMap={result.columnMap}
-          detectedSheet={result.detectedDaybookSheet}
-        />
 
         {hasData ? (
           <>
-            <TdsWaterfallView wf={result.tdsWaterfall} />
+            {/* MIS-first */}
+            <PnlHero pnl={result.mis.pnl} />
+            <ExpenseTdsMis rows={result.mis.expenseTds} />
+            <VendorApMis rows={result.mis.vendors} />
             <TransactionsExplorer txns={result.transactions} />
-            <TdsReview tds={result.tds} />
+
+            {/* Tax & audit (actual-basis) */}
+            <TdsWaterfallView wf={result.tdsWaterfall} />
             <GstReview gst={result.gst} />
             <AuditReview audit={result.audit} />
+
+            <FinancialPerformance fin={result.financials} />
+            <StructurePreview
+              daybook={daybook}
+              financials={financials}
+              columnMap={result.columnMap}
+              detectedSheet={result.detectedDaybookSheet}
+            />
           </>
         ) : (
-          <Section title="Review" icon={<IconBolt className="h-5 w-5" />} id="tds">
+          <Section title="Get started" icon={<IconBolt className="h-5 w-5" />} id="pnl">
             <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-12 text-center">
               <IconUpload className="h-8 w-8 text-slate-300" />
               <p className="text-sm font-medium text-slatex">
-                Upload a daybook to run TDS, GST and audit analysis.
+                Upload a daybook to build the P&amp;L, expense → TDS / RCM MIS and vendor ledger.
               </p>
             </div>
           </Section>
         )}
-
-        <FinancialPerformance fin={result.financials} />
 
         <RulesEditor rules={rules} onChange={setRules} />
 

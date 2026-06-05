@@ -1,6 +1,7 @@
 import type { ColumnMap, ReviewResult, RuleConfig, Txn, WorkbookStructure } from '../types'
 import { detectDaybookSheet } from './structureDetector'
 import { normalize } from './normalizer'
+import { runMis } from './mis'
 import { runTds } from './tdsRules'
 import { runTdsWaterfall } from './tdsWaterfall'
 import { runGst } from './gstRules'
@@ -57,6 +58,7 @@ export function runReview(
     warnings.push('No daybook file provided — TDS / GST / audit analysis is empty.')
   }
 
+  const mis = runMis(transactions)
   const tds = runTds(transactions, rules)
   const tdsWaterfall = runTdsWaterfall(transactions)
   const gst = runGst(transactions, rules)
@@ -73,6 +75,7 @@ export function runReview(
     columnMap,
     detectedDaybookSheet,
     transactions,
+    mis,
     tds,
     tdsWaterfall,
     gst,

@@ -260,6 +260,70 @@ export interface TdsWaterfall {
 }
 
 // ---------------------------------------------------------------------------
+// MIS — management view built directly from the daybook (no financials file).
+// P&L from GL 6xxx/7xxx, and expense -> AP -> TDS/RCM rollups.
+// ---------------------------------------------------------------------------
+
+export interface GlLine {
+  code: string
+  name: string
+  amount: number
+}
+
+export interface DaybookPnl {
+  available: boolean
+  revenue: number
+  cogs: number
+  grossProfit: number
+  grossMarginPct: number | null
+  operatingExpenses: number
+  finance: number
+  pbt: number
+  netMarginPct: number | null
+  revenueLines: GlLine[]
+  cogsLines: GlLine[]
+  opexLines: GlLine[]
+  financeLines: GlLine[]
+}
+
+/** Expense ledger (GL 6xxx/7xxx) rolled up against the TDS & RCM booked on its
+ *  vendor invoices. Effective rate = TDS / expense. */
+export interface ExpenseTdsRow {
+  glCode: string
+  ledger: string
+  section: string // inferred section label (194I/194J/194C…) from name/rate
+  expense: number
+  tds: number
+  effRate: number | null
+  rcm: number
+  rcmRate: number | null
+  vendors: number
+  docs: number
+}
+
+/** Vendor (AP party) rolled up: expense booked, TDS, RCM, AP movement. */
+export interface VendorApRow {
+  party: string
+  expense: number
+  tds: number
+  rcm: number
+  apCredit: number // invoices booked to AP
+  apDebit: number // payments / debits to AP
+  docs: number
+  topLedger: string
+}
+
+export interface MisResult {
+  pnl: DaybookPnl
+  expenseTds: ExpenseTdsRow[]
+  vendors: VendorApRow[]
+  totalExpense: number
+  totalTds: number
+  totalRcm: number
+  effTdsRate: number | null
+}
+
+// ---------------------------------------------------------------------------
 // Top-level review bundle
 // ---------------------------------------------------------------------------
 
@@ -271,6 +335,7 @@ export interface ReviewResult {
   columnMap: ColumnMap
   detectedDaybookSheet: string | null
   transactions: Txn[]
+  mis: MisResult
   tds: TdsResult
   tdsWaterfall: TdsWaterfall
   gst: GstResult
