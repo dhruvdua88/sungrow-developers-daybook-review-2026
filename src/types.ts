@@ -345,6 +345,53 @@ export interface MisResult {
 }
 
 // ---------------------------------------------------------------------------
+// Sales & output-GST analysis (revenue GL 6xxx + SGST/CGST/IGST PAYABLE).
+// ---------------------------------------------------------------------------
+
+export interface SaleVoucher {
+  docNo: string
+  docType: string
+  date: string
+  customer: string
+  taxable: number
+  sgst: number
+  cgst: number
+  igst: number
+  gst: number
+  rate: number // (gst/taxable)*100
+  rateBucket: string // '0%' | '5%' | '12%' | '18%' | '28%' | 'other'
+  hasGst: boolean
+}
+
+export interface GstRateBucket {
+  rate: string
+  vouchers: number
+  taxable: number
+  gst: number
+}
+
+export interface SalesCustomerRow {
+  customer: string
+  taxable: number
+  gst: number
+  rate: number | null
+  vouchers: number
+  byRate: { rate: string; taxable: number; gst: number; vouchers: number }[]
+}
+
+export interface SalesResult {
+  available: boolean
+  vouchers: SaleVoucher[]
+  rateBuckets: GstRateBucket[]
+  customers: SalesCustomerRow[]
+  totalTaxable: number
+  totalGst: number
+  blendedRate: number | null
+  noGstCount: number
+  noGstValue: number
+}
+
+// ---------------------------------------------------------------------------
 // Top-level review bundle
 // ---------------------------------------------------------------------------
 
@@ -357,6 +404,7 @@ export interface ReviewResult {
   detectedDaybookSheet: string | null
   transactions: Txn[]
   mis: MisResult
+  sales: SalesResult
   tds: TdsResult
   tdsWaterfall: TdsWaterfall
   gst: GstResult

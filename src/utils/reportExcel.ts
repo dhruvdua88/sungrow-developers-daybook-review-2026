@@ -61,6 +61,38 @@ export function buildWorkbook(result: ReviewResult, _rules: RuleConfig): XLSX.Wo
     ])
   }
 
+  // 2b. Sales & GST
+  const sales = result.sales
+  if (sales.available) {
+    addSheet(
+      wb,
+      'GST Rate Summary',
+      sales.rateBuckets.map((b) => ({
+        'GST Rate': b.rate,
+        Vouchers: b.vouchers,
+        'Taxable Sales': inr(b.taxable),
+        'Output GST': inr(b.gst),
+        '% of sales': sales.totalTaxable ? ((b.taxable / sales.totalTaxable) * 100).toFixed(1) + '%' : '',
+      })),
+    )
+    addSheet(
+      wb,
+      'Sales Vouchers',
+      sales.vouchers.map((v) => ({
+        Date: v.date,
+        Type: v.docType,
+        'Doc No': v.docNo,
+        Customer: v.customer,
+        'Taxable': inr(v.taxable),
+        SGST: inr(v.sgst),
+        CGST: inr(v.cgst),
+        IGST: inr(v.igst),
+        'GST Rate': v.rateBucket,
+        'GST charged?': v.hasGst ? 'Yes' : 'NO GST',
+      })),
+    )
+  }
+
   // 3. Expense Head → Party (flat)
   const ehp: Record<string, unknown>[] = []
   for (const r of mis.expenseTds) {

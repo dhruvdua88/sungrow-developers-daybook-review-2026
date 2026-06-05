@@ -8,6 +8,7 @@ import { FileUpload } from './components/FileUpload'
 import { MisKpis } from './components/MisKpis'
 import { PnlHero } from './components/PnlHero'
 import { ExpenseHeadView, PartyApView } from './components/ExpenseMis'
+import { SalesGstView } from './components/SalesGstView'
 import { TransactionsExplorer } from './components/TransactionsExplorer'
 import { DownloadPanel } from './components/DownloadPanel'
 import { Section } from './components/ui'
@@ -18,6 +19,7 @@ const REPO_URL = 'https://github.com/dhruvdua88/sungrow-developers-daybook-revie
 const NAV = [
   ['overview', 'Overview'],
   ['pnl', 'P&L'],
+  ['sales', 'Sales · GST'],
   ['expense-head', 'Expense → Party'],
   ['party-ap', 'Party / AP'],
   ['transactions', 'Transactions'],
@@ -217,6 +219,7 @@ export default function App() {
         {hasData ? (
           <>
             <PnlHero pnl={result.mis.pnl} />
+            <SalesGstView sales={result.sales} />
             <ExpenseHeadView rows={result.mis.expenseTds} />
             <PartyApView rows={result.mis.vendors} />
             <TransactionsExplorer txns={result.transactions} />

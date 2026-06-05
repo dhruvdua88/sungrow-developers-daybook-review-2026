@@ -2,6 +2,7 @@ import type { ColumnMap, ReviewResult, RuleConfig, Txn, WorkbookStructure } from
 import { detectDaybookSheet } from './structureDetector'
 import { normalize } from './normalizer'
 import { runMis } from './mis'
+import { runSales } from './sales'
 import { runTds } from './tdsRules'
 import { runTdsWaterfall } from './tdsWaterfall'
 import { runGst } from './gstRules'
@@ -59,6 +60,7 @@ export function runReview(
   }
 
   const mis = runMis(transactions)
+  const sales = runSales(transactions)
   const tds = runTds(transactions, rules)
   const tdsWaterfall = runTdsWaterfall(transactions)
   const gst = runGst(transactions, rules)
@@ -76,6 +78,7 @@ export function runReview(
     detectedDaybookSheet,
     transactions,
     mis,
+    sales,
     tds,
     tdsWaterfall,
     gst,
