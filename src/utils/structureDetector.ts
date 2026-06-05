@@ -8,12 +8,26 @@ import type { ColumnMap, DaybookField, RawSheet, WorkbookStructure } from '../ty
 /** Keyword sets per logical field. Order matters: earlier = higher priority. */
 const FIELD_KEYWORDS: Record<DaybookField, string[]> = {
   date: ['voucher date', 'posting date', 'document date', 'trans date', 'date'],
-  voucher_no: ['voucher no', 'voucher number', 'vch no', 'voucher', 'doc no', 'document no'],
-  voucher_type: ['voucher type', 'vch type', 'type', 'transaction type'],
-  ledger: ['ledger', 'account name', 'g/l', 'gl', 'account', 'head', 'particulars', 'nominal'],
-  vendor: ['vendor', 'supplier', 'party', 'customer', 'name'],
+  voucher_no: ['documentno', 'document no', 'voucher no', 'voucher number', 'vch no', 'doc no', 'voucher'],
+  voucher_type: ['document type', 'voucher type', 'vch type', 'transaction type', 'type'],
+  // Ledger NAME — prefer the "...account text" / "account name" columns.
+  ledger: [
+    'g/l account text',
+    'gl account text',
+    'account text',
+    'account name',
+    'ledger',
+    'particulars',
+    'head',
+    'nominal',
+  ],
+  // Ledger CODE/number — the plain "G/L Account" column (no "text").
+  gl_code: ['g/l account', 'gl account', 'account code', 'account no', 'gl code', 'gl'],
+  // Party — SAP "Accounting pro." holds the vendor/customer.
+  vendor: ['accounting pro', 'vendor', 'supplier', 'party', 'customer', 'payee', 'name'],
   narration: ['narration', 'description', 'remarks', 'remark', 'text', 'note', 'particular'],
-  invoice_no: ['invoice no', 'invoice number', 'bill no', 'ref no', 'reference', 'invoice', 'bill'],
+  reference: ['reference', 'ref.key', 'ref key', 'ref no', 'ref'],
+  invoice_no: ['invoice no', 'invoice number', 'bill no', 'invoice', 'bill'],
   debit: ['debit', 'dr amount', 'dr'],
   credit: ['credit', 'cr amount', 'cr'],
   amount: ['net amount', 'amount', 'value', 'gross amount'],

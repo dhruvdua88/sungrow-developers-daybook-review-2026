@@ -28,9 +28,11 @@ export type DaybookField =
   | 'date'
   | 'voucher_no'
   | 'voucher_type'
+  | 'gl_code'
   | 'ledger'
   | 'vendor'
   | 'narration'
+  | 'reference'
   | 'invoice_no'
   | 'debit'
   | 'credit'
@@ -38,16 +40,30 @@ export type DaybookField =
   | 'pan'
   | 'gstin'
 
+/** Line classification by GL prefix / ledger text — used for the explorer filter. */
+export type LineType =
+  | 'TDS'
+  | 'GST'
+  | 'Vendor/AP'
+  | 'Bank'
+  | 'Expense'
+  | 'Rev/COS'
+  | 'Inventory/FA'
+  | 'Receivable'
+  | 'Other'
+
 /** A normalized daybook transaction. */
 export interface Txn {
   rowIndex: number
   date: string
   dateValue: number | null // sortable numeric (epoch ms) when parseable
-  voucher_no: string
-  voucher_type: string
-  ledger: string
-  vendor: string
-  narration: string
+  voucher_no: string // SAP: DocumentNo
+  voucher_type: string // SAP: Document Type
+  gl_code: string // SAP: G/L Account (number)
+  ledger: string // SAP: G/L Account Text (ledger name)
+  vendor: string // SAP: Accounting pro. (party)
+  narration: string // SAP: Text
+  reference: string // SAP: reference
   invoice_no: string
   debit: number
   credit: number
@@ -56,6 +72,9 @@ export interface Txn {
   pan: string
   gstin: string
   combined_text: string
+  lineType: LineType
+  /** TDS section parsed from the ledger text when this line is a TDS ledger. */
+  tdsLedgerSection: string
 }
 
 // ---------------------------------------------------------------------------
@@ -204,6 +223,43 @@ export interface FinancialsResult {
 }
 
 // ---------------------------------------------------------------------------
+// TDS Waterfall (actual-deducted basis) — for books that already carry TDS
+// ledgers (e.g. SAP "TDS - 194C"). We report what was ACTUALLY deducted,
+// gross it up to base at the statutory rate, and roll up by party × section.
+// ---------------------------------------------------------------------------
+
+export interface WaterfallSectionRow {
+  section: string // 194C / 194J / 194I / 194Q / 192B
+  nature: string
+  rate: number // statutory %, 0 when n/a (salary)
+  deducted: number // sum of TDS credits booked
+  impliedBase: number // deducted / rate
+  parties: number
+}
+
+export interface WaterfallPartyRow {
+  party: string
+  section: string
+  rate: number
+  deducted: number
+  impliedBase: number
+  expected: number // impliedBase * rate (tautological here; kept for layout/extension)
+  variance: number
+  flag: RiskStatus
+  docs: string[]
+}
+
+export interface TdsWaterfall {
+  /** true when the book already carries TDS ledgers (actual-deducted mode available). */
+  available: boolean
+  sections: WaterfallSectionRow[]
+  parties: WaterfallPartyRow[]
+  totalDeducted: number
+  /** TDS ledger names detected in the book. */
+  detectedTdsLedgers: string[]
+}
+
+// ---------------------------------------------------------------------------
 // Top-level review bundle
 // ---------------------------------------------------------------------------
 
@@ -216,6 +272,7 @@ export interface ReviewResult {
   detectedDaybookSheet: string | null
   transactions: Txn[]
   tds: TdsResult
+  tdsWaterfall: TdsWaterfall
   gst: GstResult
   audit: AuditResult
   financials: FinancialsResult | null

@@ -84,6 +84,35 @@ export function buildWorkbook(result: ReviewResult, rules: RuleConfig): XLSX.Wor
     })),
   )
 
+  // 3b. TDS Waterfall (actual-deducted) — only when available.
+  if (result.tdsWaterfall.available) {
+    addSheet(
+      wb,
+      'TDS Waterfall',
+      result.tdsWaterfall.sections.map((s) => ({
+        Section: s.section,
+        Nature: s.nature,
+        'Rate %': s.rate || 'salary',
+        'TDS Deducted': inr(s.deducted),
+        'Implied Base': s.rate ? inr(s.impliedBase) : 'n/a',
+        Parties: s.parties,
+      })),
+    )
+    addSheet(
+      wb,
+      'Party TDS Waterfall',
+      result.tdsWaterfall.parties.map((p) => ({
+        'Party (Accounting pro.)': p.party,
+        Section: p.section,
+        'Rate %': p.rate || 'n/a',
+        'TDS Deducted': inr(p.deducted),
+        'Implied Base': p.rate ? inr(p.impliedBase) : 'n/a',
+        Vouchers: p.docs.length,
+        Flag: p.flag,
+      })),
+    )
+  }
+
   // 4. TDS Ledger Summary
   addSheet(
     wb,
@@ -214,15 +243,17 @@ export function buildWorkbook(result: ReviewResult, rules: RuleConfig): XLSX.Wor
     'Normalized Daybook',
     result.transactions.map((t) => ({
       Date: t.date,
-      'Voucher No': t.voucher_no,
-      'Voucher Type': t.voucher_type,
-      Ledger: t.ledger,
-      Vendor: t.vendor,
-      Narration: t.narration,
-      'Invoice No': t.invoice_no,
+      'Doc Type': t.voucher_type,
+      'Doc No': t.voucher_no,
+      'G/L Account': t.gl_code,
+      'G/L Account Text (Ledger)': t.ledger,
+      'Accounting pro. (Party)': t.vendor,
+      Reference: t.reference,
+      Text: t.narration,
+      'Line Type': t.lineType,
+      'TDS Section': t.tdsLedgerSection,
       Debit: t.debit,
       Credit: t.credit,
-      Amount: t.amount,
       PAN: t.pan,
       GSTIN: t.gstin,
     })),

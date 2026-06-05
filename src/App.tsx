@@ -8,6 +8,8 @@ import { FileUpload } from './components/FileUpload'
 import { DashboardCards } from './components/DashboardCards'
 import { StructurePreview } from './components/StructurePreview'
 import { TdsReview } from './components/TdsReview'
+import { TdsWaterfallView } from './components/TdsWaterfallView'
+import { TransactionsExplorer } from './components/TransactionsExplorer'
 import { GstReview } from './components/GstReview'
 import { AuditReview } from './components/AuditReview'
 import { FinancialPerformance } from './components/FinancialPerformance'
@@ -18,7 +20,9 @@ import { IconUpload, IconGrid, IconBolt } from './components/icons'
 
 const NAV = [
   ['structure', 'Structure'],
-  ['tds', 'TDS'],
+  ['waterfall', 'TDS Waterfall'],
+  ['transactions', 'Transactions'],
+  ['tds', 'TDS Rules'],
   ['gst', 'GST / RCM'],
   ['audit', 'Audit'],
   ['financials', 'Financials'],
@@ -210,6 +214,8 @@ export default function App() {
 
         {hasData ? (
           <>
+            <TdsWaterfallView wf={result.tdsWaterfall} />
+            <TransactionsExplorer txns={result.transactions} />
             <TdsReview tds={result.tds} />
             <GstReview gst={result.gst} />
             <AuditReview audit={result.audit} />
