@@ -153,6 +153,22 @@ export function buildWorkbook(result: ReviewResult, _rules: RuleConfig): XLSX.Wo
   }
   addSheet(wb, 'Party AP x Head', pah)
 
+  // 4b. Party Transaction Matrix (AP + AR)
+  const mx = result.matrix
+  const mrow = (p: (typeof mx.parties)[number]) => ({
+    Party: p.party,
+    Kind: p.kind,
+    'Account Total': inr(p.total),
+    Bank: inr(p.bank),
+    'Expense/Sales': inr(p.expense),
+    'Inventory/FA': inr(p.inventory),
+    TDS: inr(p.tds),
+    GST: inr(p.gst),
+    Other: inr(p.other),
+    Vch: p.vouchers,
+  })
+  addSheet(wb, 'Txn Matrix', [...mx.ap, ...mx.ar].map(mrow))
+
   // 5. Normalized transactions
   addSheet(
     wb,

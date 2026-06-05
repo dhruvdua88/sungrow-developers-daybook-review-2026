@@ -405,6 +405,7 @@ export interface ReviewResult {
   transactions: Txn[]
   mis: MisResult
   sales: SalesResult
+  matrix: import('./utils/txnMatrix').TxnMatrix
   tds: TdsResult
   tdsWaterfall: TdsWaterfall
   gst: GstResult

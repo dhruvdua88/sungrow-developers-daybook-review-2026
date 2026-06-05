@@ -8,6 +8,7 @@ import { FileUpload } from './components/FileUpload'
 import { MisKpis } from './components/MisKpis'
 import { PnlHero } from './components/PnlHero'
 import { ExpenseHeadView, PartyApView } from './components/ExpenseMis'
+import { TransactionMatrix } from './components/TransactionMatrix'
 import { SalesGstView } from './components/SalesGstView'
 import { TransactionsExplorer } from './components/TransactionsExplorer'
 import { DownloadPanel } from './components/DownloadPanel'
@@ -22,6 +23,7 @@ const NAV = [
   ['sales', 'Sales · GST'],
   ['expense-head', 'Expense → Party'],
   ['party-ap', 'Party / AP'],
+  ['matrix', 'Txn Matrix'],
   ['transactions', 'Transactions'],
   ['download', 'Download'],
 ] as const
@@ -222,6 +224,7 @@ export default function App() {
             <SalesGstView sales={result.sales} />
             <ExpenseHeadView rows={result.mis.expenseTds} />
             <PartyApView rows={result.mis.vendors} />
+            <TransactionMatrix matrix={result.matrix} />
             <TransactionsExplorer txns={result.transactions} />
           </>
         ) : (
