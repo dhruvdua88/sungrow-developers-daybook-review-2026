@@ -22,10 +22,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      # Use `npm install` (not `npm ci`): SheetJS ships some sub-deps as CDN
-      # URL tarballs, which leave empty versions in the lockfile that `npm ci`
-      # rejects with "Invalid Version". `npm install` tolerates them.
-      - run: npm install --no-audit --no-fund
+          cache: npm
+      - run: npm ci
       # VITE_BASE must match "/<repo-name>/" for project pages.
       - run: npm run build
         env:
