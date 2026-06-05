@@ -11,3 +11,6 @@ yarn-error.log*
 # build info / local editor
 *.tsbuildinfo
 .claude/
+
+# lockfile excluded: cross-npm-version optional-dep version mismatch breaks CI
+package-lock.json

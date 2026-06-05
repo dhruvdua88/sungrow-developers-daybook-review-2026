@@ -21,9 +21,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
+          node-version: 22
+      # No committed lockfile: npm 11 (local) writes optional platform deps
+      # without a version, which npm 10 (older runners) rejects with
+      # "Invalid Version". Resolving fresh with `npm install` avoids that.
+      - run: npm install --no-audit --no-fund
       # VITE_BASE must match "/<repo-name>/" for project pages.
       - run: npm run build
         env:
