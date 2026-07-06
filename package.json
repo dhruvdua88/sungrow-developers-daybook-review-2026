@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "validate": "tsx scripts/validate.mts",
-    "deploy": "npm run build && gh-pages -d dist"
+    "deploy": "echo 'Pages deploys via GitHub Actions on push to main. Run: git push origin main (then check: gh run watch)'"
   },
   "dependencies": {
     "@e965/xlsx": "^0.20.3",
