@@ -1,0 +1,15 @@
+{
+  "tds": [
+    { "section": "194J", "label": "Professional / Technical fees", "keywords": ["professional","consultancy","consulting","technical","legal","audit","accounting","certification","retainer","advisory"], "rate": 10, "thresholdSingle": 30000 },
+    { "section": "194C", "label": "Contractors", "keywords": ["contract","repair","maintenance","security","housekeeping","freight","transport","loading","unloading","job work","installation","service charges"], "rate": 2, "thresholdSingle": 30000, "thresholdAnnual": 100000, "manualReview": true, "note": "1% may apply for individual/HUF contractors — verify payee status." },
+    { "section": "194I", "label": "Rent", "keywords": ["rent","lease","office rent","warehouse rent"], "rate": 10, "thresholdAnnual": 240000, "note": "Plant & machinery rent attracts 2% — flag separately." },
+    { "section": "194H", "label": "Commission / Brokerage", "keywords": ["commission","brokerage","referral"], "rate": 5, "thresholdAnnual": 15000 },
+    { "section": "194A", "label": "Interest (other than securities)", "keywords": ["interest","finance charge","loan interest"], "rate": 10, "thresholdAnnual": 5000, "manualReview": true, "note": "Threshold 5,000 / 10,000 depending on payer/payee — verify manually." },
+    { "section": "192", "label": "Salary", "keywords": ["salary","payroll","employee cost","wages"], "rate": 0, "manualReview": true, "note": "Requires payroll-level computation — manual review." },
+    { "section": "194Q", "label": "Purchase of goods", "keywords": ["purchase","goods","material","trading purchase"], "rate": 0.1, "thresholdAnnual": 5000000, "manualReview": true, "note": "Vendor-wise > 50L & buyer turnover condition — possible exposure only." },
+    { "section": "Excluded", "label": "No TDS expected", "keywords": ["gst","igst","cgst","sgst","tds","custom duty","duty","tax","bank charges","forex","round off","depreciation"], "rate": 0, "excluded": true }
+  ],
+  "roundValueThreshold": 100000,
+  "highValueThreshold": 500000,
+  "relatedPartyKeywords": ["sungrow","china","holding","group","intercompany","inter company","service fee","reimbursement"]
+}
