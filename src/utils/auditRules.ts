@@ -30,8 +30,12 @@ export function runAudit(txns: Txn[], rules: RuleConfig): AuditResult {
   const manualJournals: AuditFlag[] = []
 
   // Determine the dominant month to flag backdated/old entries.
-  const dateValues = txns.map((t) => t.dateValue).filter((v): v is number => v != null)
-  const maxDate = dateValues.length ? Math.max(...dateValues) : null
+  // NB: reduce, not Math.max(...spread) — spreading a 100k+ element array
+  // overflows the call stack (RangeError) on a full SAP daybook.
+  let maxDate: number | null = null
+  for (const t of txns) {
+    if (t.dateValue != null && (maxDate === null || t.dateValue > maxDate)) maxDate = t.dateValue
+  }
 
   for (const t of txns) {
     const amt = t.absolute_amount

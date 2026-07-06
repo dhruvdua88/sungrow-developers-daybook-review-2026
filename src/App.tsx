@@ -10,6 +10,7 @@ import { PnlHero } from './components/PnlHero'
 import { ExpenseHeadView, PartyApView } from './components/ExpenseMis'
 import { TransactionMatrix } from './components/TransactionMatrix'
 import { SalesGstView } from './components/SalesGstView'
+import { FinancialPerformance } from './components/FinancialPerformance'
 import { TransactionsExplorer } from './components/TransactionsExplorer'
 import { DownloadPanel } from './components/DownloadPanel'
 import { Section } from './components/ui'
@@ -20,6 +21,7 @@ const REPO_URL = 'https://github.com/dhruvdua88/sungrow-developers-daybook-revie
 const NAV = [
   ['overview', 'Overview'],
   ['pnl', 'P&L'],
+  ['financials', 'Financials'],
   ['sales', 'Sales · GST'],
   ['expense-head', 'Expense → Party'],
   ['party-ap', 'Party / AP'],
@@ -68,12 +70,18 @@ export default function App() {
     }
   }
 
-  const result = useMemo(
+  // Heavy pipeline (~130k rows) depends ONLY on the data + rules — NOT on the
+  // month label. Keep `month` out of these deps so typing in the Month box does
+  // not re-run the whole review synchronously and freeze the UI.
+  const baseResult = useMemo(
     () => runReview(month, daybook, financials, rules),
-    [month, daybook, financials, rules],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [daybook, financials, rules],
   )
+  const result = useMemo(() => ({ ...baseResult, month }), [baseResult, month])
 
   const hasData = result.transactions.length > 0
+  const hasFin = (result.financials?.sheetsAvailable.length ?? 0) > 0
 
   useEffect(() => {
     document.title = `SDIPL Review — ${month}`
@@ -221,6 +229,7 @@ export default function App() {
         {hasData ? (
           <>
             <PnlHero pnl={result.mis.pnl} />
+            {hasFin && <FinancialPerformance fin={result.financials} />}
             <SalesGstView sales={result.sales} />
             <ExpenseHeadView rows={result.mis.expenseTds} />
             <PartyApView rows={result.mis.vendors} />
@@ -228,14 +237,17 @@ export default function App() {
             <TransactionsExplorer txns={result.transactions} />
           </>
         ) : (
-          <Section title="Get started" icon={<IconBolt className="h-5 w-5" />} id="pnl">
-            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-12 text-center">
-              <IconUpload className="h-8 w-8 text-slate-300" />
-              <p className="text-sm font-medium text-slatex">
-                Upload a daybook to build the P&amp;L, expense → party and party-AP views.
-              </p>
-            </div>
-          </Section>
+          <>
+            <Section title="Get started" icon={<IconBolt className="h-5 w-5" />} id="pnl">
+              <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-12 text-center">
+                <IconUpload className="h-8 w-8 text-slate-300" />
+                <p className="text-sm font-medium text-slatex">
+                  Upload a daybook to build the P&amp;L, expense → party and party-AP views.
+                </p>
+              </div>
+            </Section>
+            {hasFin && <FinancialPerformance fin={result.financials} />}
+          </>
         )}
 
         <DownloadPanel result={result} rules={rules} />

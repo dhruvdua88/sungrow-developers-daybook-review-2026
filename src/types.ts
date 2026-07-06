@@ -210,6 +210,8 @@ export interface PnlLine {
 export interface FinancialsResult {
   detectedSheet: string | null
   periods: string[]
+  periodKinds: ('month' | 'audited')[]
+  selectedPeriod: number // index into periods; -1 when none
   lines: PnlLine[]
   // Key extracted metrics (best effort; null when not found)
   revenue: number | null

@@ -10,14 +10,24 @@ const inr = (n: number) => (n ?? 0).toLocaleString('en-IN', { maximumFractionDig
 
 function sheetFromRows(rows: Record<string, unknown>[], cols?: string[]): XLSX.WorkSheet {
   const header = cols ?? (rows.length ? Object.keys(rows[0]) : [])
-  const aoa: unknown[][] = [header, ...rows.map((r) => header.map((h) => r[h] ?? ''))]
+  // Build without array-spread: `[header, ...rows.map()]` overflows the call
+  // stack on the 100k+ row Transactions sheet. Push in a single pass and track
+  // column widths at the same time (avoids a second full pass per column).
+  const aoa: unknown[][] = [header]
+  const widths = header.map((h) => String(h).length)
+  for (const r of rows) {
+    const line: unknown[] = new Array(header.length)
+    for (let c = 0; c < header.length; c++) {
+      const v = r[header[c]] ?? ''
+      line[c] = v
+      const len = String(v).length
+      if (len > widths[c]) widths[c] = len
+    }
+    aoa.push(line)
+  }
   const ws = XLSX.utils.aoa_to_sheet(aoa)
   ;(ws as any)['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft' }
-  ws['!cols'] = header.map((h) => {
-    let w = String(h).length
-    for (const r of rows) w = Math.max(w, String(r[h] ?? '').length)
-    return { wch: Math.min(Math.max(w + 2, 10), 60) }
-  })
+  ws['!cols'] = widths.map((w) => ({ wch: Math.min(Math.max(w + 2, 10), 60) }))
   return ws
 }
 
